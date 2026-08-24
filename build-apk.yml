@@ -4,7 +4,7 @@ name: Build Bilibili APK
   workflow_dispatch:
   push:
     branches: 
-    - main
+      - main
 
 jobs:
   build:
