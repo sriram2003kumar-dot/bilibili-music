@@ -1,61 +1,114 @@
 name: Build Bilibili APK
-on: [push, workflow_dispatch]
+
+on:
+  push:
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Find ZIP
         run: |
-          ZIP=$(find . -maxdepth 1 -type f -name "*.zip" | head -1)
-          test -n "$ZIP" || { echo "ZIP file not found"; exit 1; }
+          ZIP=$(find . -maxdepth 2 -type f -name "*.zip" | head -1)
+
+          if [ -z "$ZIP" ]; then
+            echo "ZIP file not found"
+            exit 1
+          fi
+
           echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+          echo "Found ZIP: $ZIP"
+
       - name: Extract Android project
         run: |
           mkdir -p android-project
           unzip -q "$ZIP" -d android-project
-          PROJECT_DIR=$(find android-project -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit | xargs -r dirname)
-          test -n "$PROJECT_DIR" || { echo "Android project not found"; exit 1; }
+
+          PROJECT_DIR=$(find android-project -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" \) -print -quit | xargs -r dirname)
+
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "Android project not found"
+            find android-project -maxdepth 4 -type f
+            exit 1
+          fi
+
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Project: $PROJECT_DIR"
+
       - name: Apply Bilibili fixes
         run: |
-          python3 patches/patch_android.py
           ASSETS="$PROJECT_DIR/app/src/main/assets"
+
           mkdir -p "$ASSETS"
-          cp feature-fix.js "$ASSETS/feature-fix.js"
+
+          if [ -f "feature-fix.js" ]; then
+            cp feature-fix.js "$ASSETS/feature-fix.js"
+          fi
+
           INDEX="$ASSETS/index.html"
-          if [ ! -f "$INDEX" ]; then INDEX=$(find "$PROJECT_DIR/app/src/main" -type f -name index.html -print -quit); fi
-          test -f "$INDEX" || { echo "index.html not found"; exit 1; }
+
+          if [ ! -f "$INDEX" ]; then
+            INDEX=$(find "$PROJECT_DIR/app/src/main" -name "index.html" -type f | head -1)
+          fi
+
+          if [ -z "$INDEX" ] || [ ! -f "$INDEX" ]; then
+            echo "index.html not found"
+            exit 1
+          fi
+
           python3 - "$INDEX" <<'PY'
-import sys
-from pathlib import Path
-p=Path(sys.argv[1]); s=p.read_text(encoding='utf-8'); tag='<script src="feature-fix.js"></script>'
-if tag not in s:
-    s=s.replace('</body>',tag+'\n</body>',1) if '</body>' in s else s+'\n'+tag+'\n'
-    p.write_text(s,encoding='utf-8')
-PY
+          import sys
+          from pathlib import Path
+
+          p = Path(sys.argv[1])
+          s = p.read_text(encoding="utf-8")
+
+          tag = '<script src="feature-fix.js"></script>'
+
+          if tag not in s:
+              if "</body>" in s:
+                  s = s.replace("</body>", tag + "\n</body>", 1)
+              else:
+                  s += "\n" + tag + "\n"
+
+              p.write_text(s, encoding="utf-8")
+
+          print("Bilibili feature fix applied")
+          PY
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+
       - name: Install Android SDK
         run: |
           sdkmanager "platform-tools"
           sdkmanager "platforms;android-35"
           sdkmanager "build-tools;35.0.0"
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          gradle-version: "8.9"
+
       - name: Build APK
         working-directory: ${{ env.PROJECT_DIR }}
-        run: gradle assembleDebug --no-daemon -Pkotlin.jvm.target.validation.mode=warning
+        run: |
+          gradle assembleDebug --no-daemon
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bilibili-Music-APK
-          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk
+          name: Bilibili-Music-debug
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
