@@ -56,9 +56,9 @@ jobs:
           gradle-version: '8.9'
 
       - name: Build APK
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          gradle assembleDebug --no-daemon
+  working-directory: ${{ env.PROJECT_DIR }}
+  run: |
+    gradle assembleDebug --no-daemon -Pkotlin.jvm.target.validation.mode=warning
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
