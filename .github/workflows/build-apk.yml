@@ -81,11 +81,47 @@ jobs:
           print("Bilibili feature fix applied")
           PY
 
-                - name: Fix Java JVM target
+                    - name: Fix Java JVM target
         run: |
-          find "$PROJECT_DIR" -name "*.gradle" -type f -exec sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g' {} +
-          find "$PROJECT_DIR" -name "*.gradle.kts" -type f -exec sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g' {} +
-          echo "Java JVM target fixed to 17"
+          python3 - "$PROJECT_DIR" <<'PY'
+          import sys
+          from pathlib import Path
+          import re
+
+          root = Path(sys.argv[1])
+
+          for p in list(root.rglob("*.gradle")) + list(root.rglob("*.gradle.kts")):
+              s = p.read_text(encoding="utf-8")
+
+              s = s.replace("JavaVersion.VERSION_1_8", "JavaVersion.VERSION_17")
+              s = s.replace("JavaVersion.VERSION_1_7", "JavaVersion.VERSION_17")
+              s = s.replace('sourceCompatibility = "1.8"', 'sourceCompatibility = JavaVersion.VERSION_17')
+              s = s.replace('targetCompatibility = "1.8"', 'targetCompatibility = JavaVersion.VERSION_17')
+              s = s.replace("jvmTarget = '1.8'", "jvmTarget = '17'")
+              s = s.replace('jvmTarget = "1.8"', 'jvmTarget = "17"')
+
+              if p.name == "build.gradle":
+                  if "compileOptions" not in s:
+                      s = s.replace(
+                          "android {",
+                          """android {
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+""",
+                          1
+                      )
+
+              p.write_text(s, encoding="utf-8")
+              print("Fixed:", p)
+
+          print("Java/Kotlin JVM target forced to 17")
+          PY
 
       - name: Set up Java
         uses: actions/setup-java@v4
