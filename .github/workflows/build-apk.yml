@@ -81,6 +81,12 @@ jobs:
           print("Bilibili feature fix applied")
           PY
 
+                - name: Fix Java JVM target
+        run: |
+          find "$PROJECT_DIR" -name "*.gradle" -type f -exec sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g' {} +
+          find "$PROJECT_DIR" -name "*.gradle.kts" -type f -exec sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/g' {} +
+          echo "Java JVM target fixed to 17"
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
