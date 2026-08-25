@@ -13,22 +13,24 @@ jobs:
       - name: Find ZIP
         run: |
           ZIP=$(find . -maxdepth 1 -type f -name "*.zip" | head -1)
+
           if [ -z "$ZIP" ]; then
             echo "ZIP file not found"
             exit 1
           fi
+
           echo "ZIP=$ZIP" >> "$GITHUB_ENV"
 
       - name: Extract Android project
         run: |
-          mkdir android-project
+          mkdir -p android-project
           unzip -q "$ZIP" -d android-project
 
-          PROJECT_DIR=$(find android-project -name settings.gradle -o -name settings.gradle.kts | head -1 | xargs dirname)
+          PROJECT_DIR=$(find android-project -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit | xargs -r dirname)
 
           if [ -z "$PROJECT_DIR" ]; then
             echo "Android project not found"
-            find android-project -maxdepth 4 -type f
+            find android-project -maxdepth 5 -type f
             exit 1
           fi
 
@@ -56,9 +58,9 @@ jobs:
           gradle-version: '8.9'
 
       - name: Build APK
-  working-directory: ${{ env.PROJECT_DIR }}
-  run: |
-    gradle assembleDebug --no-daemon -Pkotlin.jvm.target.validation.mode=warning
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          gradle assembleDebug --no-daemon -Pkotlin.jvm.target.validation.mode=warning
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
