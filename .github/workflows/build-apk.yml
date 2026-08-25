@@ -81,7 +81,7 @@ jobs:
           print("Bilibili feature fix applied")
           PY
 
-                    - name: Fix Java JVM target
+      - name: Fix Java JVM target
         run: |
           python3 - "$PROJECT_DIR" <<'PY'
           import sys
@@ -143,7 +143,7 @@ jobs:
         with:
           gradle-version: "8.9"
 
-           - name: Build APK
+      - name: Build APK
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           gradle assembleDebug --no-daemon \
